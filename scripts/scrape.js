@@ -527,7 +527,7 @@ async function runScraper() {
     } else {
       const errRecord = {
         timestamp,
-        price: lastRecord ? lastRecord.price : null,
+        price: null,
         currency: lastRecord ? lastRecord.currency : '€',
         status: 'error',
         error: errorMsg || 'Unable to extract price with configured selectors'
@@ -537,7 +537,7 @@ async function runScraper() {
       if (!isDryRun && isSupabaseConfigured && supabase) {
         await supabase.from('price_history').insert({
           product_id: product.id,
-          price: errRecord.price,
+          price: null,
           currency: errRecord.currency,
           status: 'error',
           error: errRecord.error,

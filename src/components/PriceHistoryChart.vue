@@ -37,7 +37,7 @@
           :cx="point.x"
           :cy="point.y"
           r="4"
-          :fill="point.status === 'error' ? '#f43f5e' : '#06b6d4'"
+          :fill="(point.status === 'error' && point.price === null) ? '#f43f5e' : '#06b6d4'"
           stroke="#090d16"
           stroke-width="2"
           class="chart-point"
@@ -59,7 +59,7 @@
         <div class="tooltip-date">{{ formatDate(hoverPoint.timestamp) }}</div>
         <div class="tooltip-price">
           {{ hoverPoint.currency }}{{ hoverPoint.price }}
-          <span v-if="hoverPoint.status === 'error'" class="tooltip-error">(Scrape Error)</span>
+          <span v-if="hoverPoint.status === 'error' && hoverPoint.price === null" class="tooltip-error">(Scrape Error)</span>
         </div>
       </div>
 

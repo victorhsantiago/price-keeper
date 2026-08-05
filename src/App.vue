@@ -144,11 +144,12 @@ async function loadData() {
         const map: Record<string, HistoryRecord[]> = {}
         for (const h of dbHistory) {
           const list = map[h.product_id] || []
+          const parsedPrice = h.price !== null ? Number(h.price) : null
           list.push({
             timestamp: h.timestamp,
-            price: h.price !== null ? Number(h.price) : null,
+            price: parsedPrice,
             currency: h.currency || '€',
-            status: h.status || 'success'
+            status: parsedPrice !== null ? 'success' : (h.status || 'error')
           })
           map[h.product_id] = list
         }
