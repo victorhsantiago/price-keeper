@@ -7,5 +7,14 @@
     "targetPrice": 1400,
     "active": true,
     "addedAt": "2026-08-05T09:32:49.455Z"
+  },
+  {
+    "id": "prod_1785927787648",
+    "name": "ROG-ASTRAL-RTX5080-O16G-GAMING Grafikkarte",
+    "url": "https://www.otto.de/p/asus-rog-astral-rtx5080-o16g-gaming-grafikkarte-C2000742030/?variationId=S39949TM1NDL&utm_source=ogs",
+    "selector": "",
+    "targetPrice": 1400,
+    "active": true,
+    "addedAt": "2026-08-05T11:03:07.648Z"
   }
 ]
