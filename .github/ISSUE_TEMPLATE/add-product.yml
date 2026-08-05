@@ -1,0 +1,40 @@
+name: "Add Product to Tracker"
+description: "Watch a new product for price drops"
+title: "[Add Product] "
+labels: ["product-action", "add-product"]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: "Product Name"
+      description: "Descriptive name for the product"
+      placeholder: "e.g. Sony WH-1000XM5 Headphones"
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: "Product URL"
+      description: "Full URL of the product page to scrape"
+      placeholder: "https://example.com/product/123"
+    validations:
+      required: true
+
+  - type: input
+    id: targetPrice
+    attributes:
+      label: "Target Price"
+      description: "Desired target price to trigger alerts (numeric value)"
+      placeholder: "299.99"
+    validations:
+      required: false
+
+  - type: input
+    id: selector
+    attributes:
+      label: "Custom CSS Selector (Optional)"
+      description: "CSS selector for the price element (leave empty for automatic detection)"
+      placeholder: ".price-current, #priceblock_ourprice, span[data-price]"
+    validations:
+      required: false

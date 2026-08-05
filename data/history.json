@@ -1,0 +1,10 @@
+{
+  "prod_example_1": [
+    {
+      "timestamp": "2026-08-05T10:00:00.000Z",
+      "price": 100,
+      "currency": "$",
+      "status": "success"
+    }
+  ]
+}

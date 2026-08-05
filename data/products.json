@@ -1,0 +1,11 @@
+[
+  {
+    "id": "prod_example_1",
+    "name": "Playwright Documentation",
+    "url": "https://playwright.dev/",
+    "selector": "h1",
+    "targetPrice": 100,
+    "active": true,
+    "addedAt": "2026-08-05T10:00:00Z"
+  }
+]

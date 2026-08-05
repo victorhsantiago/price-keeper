@@ -1,0 +1,12 @@
+name: "Remove Product from Tracker"
+description: "Stop watching a product"
+title: "[Remove Product] "
+labels: ["product-action", "remove-product"]
+body:
+  - type: input
+    id: id
+    attributes:
+      label: "Product ID or URL"
+      description: "ID or exact URL of the product to stop tracking"
+    validations:
+      required: true
