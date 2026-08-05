@@ -112,13 +112,14 @@ const isAddModalOpen = ref(false)
 
 async function loadData() {
   isLoading.value = true
-  const baseUrl = import.meta.env.BASE_URL || './'
-  const cleanBase = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'
+  const rawBase = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/data/`
+  const localBase = import.meta.env.BASE_URL || './'
+  const cleanLocalBase = localBase.endsWith('/') ? localBase : localBase + '/'
 
   try {
-    const productsRes = await fetch(`${cleanBase}data/products.json?t=${Date.now()}`)
+    const productsRes = await fetch(`${rawBase}products.json?t=${Date.now()}`)
+      .catch(() => fetch(`${cleanLocalBase}data/products.json?t=${Date.now()}`))
       .catch(() => fetch('./data/products.json'))
-      .catch(() => fetch('data/products.json'))
     if (productsRes && productsRes.ok) {
       products.value = await productsRes.json()
     }
@@ -127,9 +128,9 @@ async function loadData() {
   }
 
   try {
-    const historyRes = await fetch(`${cleanBase}data/history.json?t=${Date.now()}`)
+    const historyRes = await fetch(`${rawBase}history.json?t=${Date.now()}`)
+      .catch(() => fetch(`${cleanLocalBase}data/history.json?t=${Date.now()}`))
       .catch(() => fetch('./data/history.json'))
-      .catch(() => fetch('data/history.json'))
     if (historyRes && historyRes.ok) {
       historyMap.value = await historyRes.json()
     }
