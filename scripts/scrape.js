@@ -87,10 +87,14 @@ const SITE_ADAPTERS = {
     '#corePrice_feature_div .a-offscreen',
     '#corePriceDisplay_desktop_feature_div .a-offscreen',
     '#apex_desktop .a-price .a-offscreen',
-    '.a-price .a-offscreen',
+    '#price_inside_buybox',
     '#priceblock_ourprice',
     '#priceblock_dealprice',
-    'span.a-price-whole'
+    '.a-price .a-offscreen',
+    'span.a-price-whole',
+    '.a-color-price',
+    '#price',
+    '#corePrice_desktop .a-offscreen'
   ],
   'otto.de': [
     '[data-qa="priceAmount"]',
@@ -138,6 +142,25 @@ const genericSelectors = [
 ];
 
 /**
+ * Safely extracts text content, inner text, or content attribute from Playwright ElementHandle
+ * Works properly on hidden/offscreen elements like .a-offscreen and <script> tags.
+ */
+async function getElementText(el) {
+  if (!el) return '';
+  try {
+    const textContent = await el.textContent();
+    if (textContent && textContent.trim()) return textContent.trim();
+
+    const innerText = await el.innerText();
+    if (innerText && innerText.trim()) return innerText.trim();
+
+    const content = await el.getAttribute('content');
+    if (content && content.trim()) return content.trim();
+  } catch {}
+  return '';
+}
+
+/**
  * Lightweight HTTP fetch fallback for pages blocked or timed out by Playwright
  */
 async function fetchHtmlFallback(urlStr) {
@@ -150,7 +173,7 @@ async function fetchHtmlFallback(urlStr) {
           'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7'
       },
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(15000)
     });
     if (!res.ok) return null;
     const html = await res.text();
@@ -288,7 +311,10 @@ async function runScraper() {
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
-      '--disable-blink-features=AutomationControlled'
+      '--disable-blink-features=AutomationControlled',
+      '--disable-infobars',
+      '--window-size=1920,1080',
+      '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
     ]
   });
 
@@ -297,10 +323,11 @@ async function runScraper() {
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     viewport: { width: 1920, height: 1080 },
     locale: 'de-DE',
+    timezoneId: 'Europe/Berlin',
     extraHTTPHeaders: {
       'Accept-Language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-      'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124"',
+      'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
       'sec-ch-ua-mobile': '?0',
       'sec-ch-ua-platform': '"Windows"',
       'sec-fetch-dest': 'document',
@@ -328,8 +355,15 @@ async function runScraper() {
     let errorMsg = null;
 
     try {
-      await page.goto(product.url, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null);
-      await page.waitForTimeout(1500);
+      await page.goto(product.url, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(e => {
+        console.warn(`  -> Page navigation timeout or notice: ${e.message}`);
+      });
+      await page.waitForTimeout(2000);
+
+      const pageTitle = await page.title().catch(() => '');
+      if (pageTitle.toLowerCase().includes('robot check') || pageTitle.toLowerCase().includes('captcha')) {
+        console.warn(`  -> ⚠️ Site Bot Protection (Captcha) triggered! Title: "${pageTitle}"`);
+      }
 
       // Dismiss cookie consent banners if present
       try {
@@ -345,7 +379,7 @@ async function runScraper() {
         try {
           const el = await page.$(product.selector);
           if (el) {
-            const text = await el.innerText();
+            const text = await getElementText(el);
             extractedData = parsePrice(text);
             if (extractedData) {
               console.log(`  -> Found via custom selector "${product.selector}":`, extractedData);
@@ -363,7 +397,7 @@ async function runScraper() {
           try {
             const el = await page.$(selector);
             if (el) {
-              const text = await el.innerText();
+              const text = await getElementText(el);
               extractedData = parsePrice(text);
               if (extractedData) {
                 console.log(`  -> Found via domain selector "${selector}":`, extractedData);
@@ -379,7 +413,7 @@ async function runScraper() {
         try {
           const jsonLdElements = await page.$$('script[type="application/ld+json"]');
           for (const el of jsonLdElements) {
-            const rawJson = await el.innerText();
+            const rawJson = await getElementText(el);
             try {
               const data = JSON.parse(rawJson);
               const items = Array.isArray(data) ? data : [data];
@@ -415,7 +449,7 @@ async function runScraper() {
           try {
             const el = await page.$(selector);
             if (el) {
-              const text = (await el.getAttribute('content')) || (await el.innerText());
+              const text = await getElementText(el);
               extractedData = parsePrice(text);
               if (extractedData) {
                 console.log(`  -> Found via generic selector "${selector}":`, extractedData);
@@ -429,7 +463,7 @@ async function runScraper() {
       // 5. Page Body Text Regex Fallback
       if (!extractedData) {
         try {
-          const bodyText = await page.innerText('body');
+          const bodyText = await page.evaluate(() => document.body ? (document.body.innerText + ' ' + document.body.textContent) : '').catch(() => '');
           const matches = bodyText.match(/(?:[$€£¥]\s*[\d.,]+|[\d.,]+\s*[$€£¥])/g);
           if (matches && matches.length > 0) {
             for (const m of matches) {
@@ -443,19 +477,19 @@ async function runScraper() {
           }
         } catch {}
       }
+
+      // 6. HTTP fetch fallback if Playwright yielded no data
+      if (!extractedData) {
+        console.log('  -> Playwright extraction yielded no price, attempting HTTP fetch fallback...');
+        extractedData = await fetchHtmlFallback(product.url);
+        if (extractedData) {
+          console.log('  -> Found via HTTP fetch fallback:', extractedData);
+        }
+      }
     } catch (err) {
       errorMsg = err.message;
     } finally {
       await page.close().catch(() => null);
-    }
-
-    // 6. HTTP fetch fallback if Playwright failed or yielded no data
-    if (!extractedData) {
-      console.log('  -> Playwright extraction yielded no price, attempting HTTP fetch fallback...');
-      extractedData = await fetchHtmlFallback(product.url);
-      if (extractedData) {
-        console.log('  -> Found via HTTP fetch fallback:', extractedData);
-      }
     }
 
     if (!history[product.id]) {
