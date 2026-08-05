@@ -8,7 +8,7 @@
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "test:unit": "vitest",
-    "build-only": "vite build",
+    "build-only": "vite build && node -e \"import fs from 'fs'; fs.mkdirSync('dist/data', {recursive: true}); fs.copyFileSync('data/products.json', 'dist/data/products.json'); if (fs.existsSync('data/history.json')) fs.copyFileSync('data/history.json', 'dist/data/history.json');\"",
     "type-check": "vue-tsc --build",
     "lint": "run-s \"lint:*\"",
     "lint:oxlint": "oxlint . --fix",

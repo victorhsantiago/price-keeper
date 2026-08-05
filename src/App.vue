@@ -112,22 +112,29 @@ const isAddModalOpen = ref(false)
 
 async function loadData() {
   isLoading.value = true
+  const baseUrl = import.meta.env.BASE_URL || './'
+  const cleanBase = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'
+
   try {
-    const productsRes = await fetch('./data/products.json?t=' + Date.now()).catch(() => fetch('/data/products.json'))
-    if (productsRes.ok) {
+    const productsRes = await fetch(`${cleanBase}data/products.json?t=${Date.now()}`)
+      .catch(() => fetch('./data/products.json'))
+      .catch(() => fetch('data/products.json'))
+    if (productsRes && productsRes.ok) {
       products.value = await productsRes.json()
     }
   } catch (err) {
-    console.warn('Could not fetch products.json directly, using fallback:', err)
+    console.warn('Could not fetch products.json:', err)
   }
 
   try {
-    const historyRes = await fetch('./data/history.json?t=' + Date.now()).catch(() => fetch('/data/history.json'))
-    if (historyRes.ok) {
+    const historyRes = await fetch(`${cleanBase}data/history.json?t=${Date.now()}`)
+      .catch(() => fetch('./data/history.json'))
+      .catch(() => fetch('data/history.json'))
+    if (historyRes && historyRes.ok) {
       historyMap.value = await historyRes.json()
     }
   } catch (err) {
-    console.warn('Could not fetch history.json directly, using fallback:', err)
+    console.warn('Could not fetch history.json:', err)
   }
 
   isLoading.value = false
