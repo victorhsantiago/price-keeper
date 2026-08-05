@@ -84,38 +84,44 @@ function parsePrice(rawText) {
 }
 
 /**
- * Domain-specific selector presets for major e-commerce platforms
+ * Domain-specific selector presets dictionary for major e-commerce platforms
  */
+const SITE_ADAPTERS = {
+  amazon: [
+    '#corePrice_feature_div .a-offscreen',
+    '#corePriceDisplay_desktop_feature_div .a-offscreen',
+    '#apex_desktop .a-price .a-offscreen',
+    '.a-price .a-offscreen',
+    '#priceblock_ourprice',
+    '#priceblock_dealprice',
+    'span.a-price-whole'
+  ],
+  'otto.de': [
+    '[data-qa="priceAmount"]',
+    '[data-qa="price"]',
+    '.p_price__amount',
+    'span.p_price',
+    '.p_price',
+    'meta[itemprop="price"]',
+    '.p_price__inner',
+    'span[class*="price"]'
+  ],
+  ebay: [
+    '.x-price-primary',
+    '#prcIsum',
+    'span[itemprop="price"]'
+  ]
+};
+
 function getDomainSelectors(urlStr) {
   try {
     const hostname = new URL(urlStr).hostname.toLowerCase();
-
-    if (hostname.includes('amazon')) {
-      return [
-        '#corePrice_feature_div .a-offscreen',
-        '#corePriceDisplay_desktop_feature_div .a-offscreen',
-        '#apex_desktop .a-price .a-offscreen',
-        '.a-price .a-offscreen',
-        '#priceblock_ourprice',
-        '#priceblock_dealprice',
-        'span.a-price-whole'
-      ];
-    }
-
-    if (hostname.includes('otto.de')) {
-      return [
-        '[data-qa="priceAmount"]',
-        '[data-qa="price"]',
-        '.p_price__amount',
-        'span.p_price',
-        '.p_price',
-        'meta[itemprop="price"]',
-        '.p_price__inner',
-        'span[class*="price"]'
-      ];
+    for (const [domainKey, selectors] of Object.entries(SITE_ADAPTERS)) {
+      if (hostname.includes(domainKey)) {
+        return selectors;
+      }
     }
   } catch {}
-
   return [];
 }
 
