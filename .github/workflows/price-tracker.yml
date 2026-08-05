@@ -24,9 +24,14 @@ jobs:
         with:
           node-version: 24
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Install dependencies & Playwright
         run: |
-          npm install
+          pnpm install --no-frozen-lockfile
           npx playwright install --with-deps chromium
 
       - name: Handle Issue Action (If Issue Opened)
