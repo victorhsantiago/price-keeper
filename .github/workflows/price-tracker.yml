@@ -52,7 +52,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
-          git diff --quiet && git diff --staged --quiet || (git commit -m "update: price history and tracked products [skip ci]" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "update: price history and tracked products" && git push)
 
       - name: Close Issue (If Triggered by Issue)
         if: github.event_name == 'issues'

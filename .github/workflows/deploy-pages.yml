@@ -3,6 +3,10 @@ name: Deploy Vue Dashboard to GitHub Pages
 on:
   push:
     branches: ["main"]
+  workflow_run:
+    workflows: ["Price Tracker & Scraper"]
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
