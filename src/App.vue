@@ -97,7 +97,7 @@ interface HistoryRecord {
   status?: string
 }
 
-const repoOwner = 'victorsantiago'
+const repoOwner = 'victorhsantiago'
 const repoName = 'price-keeper'
 
 const products = ref<Product[]>([])
