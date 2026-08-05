@@ -142,6 +142,72 @@ const genericSelectors = [
 ];
 
 /**
+ * Lightweight HTTP fetch fallback for pages blocked or timed out by Playwright
+ */
+async function fetchHtmlFallback(urlStr) {
+  try {
+    const res = await fetch(urlStr, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept':
+          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7'
+      },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+
+    // 1. JSON-LD structured data in raw HTML
+    const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi);
+    if (jsonLdMatch) {
+      for (const tag of jsonLdMatch) {
+        const rawJson = tag.replace(/<[^>]+>/g, '').trim();
+        try {
+          const data = JSON.parse(rawJson);
+          const items = Array.isArray(data) ? data : [data];
+          for (const item of items) {
+            const prod = item['@type'] === 'Product' ? item : (item.mainEntity || item);
+            if (prod && prod.offers) {
+              const offer = Array.isArray(prod.offers) ? prod.offers[0] : prod.offers;
+              const priceRaw = offer.price || offer.highPrice || offer.lowPrice;
+              if (priceRaw !== undefined && priceRaw !== null) {
+                const price = typeof priceRaw === 'number' ? priceRaw : parseFloat(String(priceRaw).replace(',', '.'));
+                const currency = offer.priceCurrency || '€';
+                if (!isNaN(price) && price > 0) {
+                  return { price, currency };
+                }
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+
+    // 2. Meta tags in raw HTML
+    const metaMatch = html.match(/meta\s+(?:property|name|itemprop)=["'](?:product:price:amount|og:price:amount|price)["']\s+content=["']([\d.,]+)["']/i);
+    if (metaMatch && (metaMatch[1] || metaMatch[2])) {
+      const val = metaMatch[1] || metaMatch[2];
+      const parsed = parsePrice(val);
+      if (parsed) return parsed;
+    }
+
+    // 3. Raw price regex in HTML body
+    const priceTextMatch = html.match(/(?:[$€£¥]\s*[\d.,]+|[\d.,]+\s*[$€£¥])/g);
+    if (priceTextMatch) {
+      for (const m of priceTextMatch) {
+        const parsed = parsePrice(m);
+        if (parsed && parsed.price > 10) return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('  -> HTTP fetch fallback error:', e.message);
+  }
+  return null;
+}
+
+/**
  * Sends Webhook Notification
  */
 async function sendNotification(product, newPrice, currency, oldPrice) {
@@ -210,13 +276,13 @@ async function runScraper() {
 
   const context = await browser.newContext({
     userAgent:
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     viewport: { width: 1920, height: 1080 },
     locale: 'de-DE',
     extraHTTPHeaders: {
       'Accept-Language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-      'sec-ch-ua': '"Chromium";v="122", "Google Chrome";v="122"',
+      'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124"',
       'sec-ch-ua-mobile': '?0',
       'sec-ch-ua-platform': '"Windows"',
       'sec-fetch-dest': 'document',
@@ -225,6 +291,13 @@ async function runScraper() {
       'sec-fetch-user': '?1',
       'upgrade-insecure-requests': '1'
     }
+  });
+
+  await context.addInitScript(() => {
+    delete Object.getPrototypeOf(navigator).webdriver;
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    Object.defineProperty(navigator, 'languages', { get: () => ['de-DE', 'de', 'en-US', 'en'] });
+    window.chrome = { runtime: {} };
   });
 
   const timestamp = new Date().toISOString();
@@ -237,8 +310,8 @@ async function runScraper() {
     let errorMsg = null;
 
     try {
-      await page.goto(product.url, { waitUntil: 'domcontentloaded', timeout: 35000 });
-      await page.waitForTimeout(2000);
+      await page.goto(product.url, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null);
+      await page.waitForTimeout(1500);
 
       // Dismiss cookie consent banners if present
       try {
@@ -354,9 +427,17 @@ async function runScraper() {
       }
     } catch (err) {
       errorMsg = err.message;
-      console.error(`  -> Failed to scrape "${product.name}":`, errorMsg);
     } finally {
-      await page.close();
+      await page.close().catch(() => null);
+    }
+
+    // 6. HTTP fetch fallback if Playwright failed or yielded no data
+    if (!extractedData) {
+      console.log('  -> Playwright extraction yielded no price, attempting HTTP fetch fallback...');
+      extractedData = await fetchHtmlFallback(product.url);
+      if (extractedData) {
+        console.log('  -> Found via HTTP fetch fallback:', extractedData);
+      }
     }
 
     if (!history[product.id]) {
