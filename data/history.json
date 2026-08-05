@@ -19,11 +19,34 @@
       "currency": "$",
       "status": "error",
       "error": "Unable to extract price with configured selectors"
+    },
+    {
+      "timestamp": "2026-08-05T09:49:40.018Z",
+      "price": 100,
+      "currency": "$",
+      "status": "error",
+      "error": "Unable to extract price with configured selectors"
     }
   ],
   "prod_1785922369455": [
     {
       "timestamp": "2026-08-05T09:32:50.047Z",
+      "price": null,
+      "currency": "$",
+      "status": "error",
+      "error": "Unable to extract price with configured selectors"
+    },
+    {
+      "timestamp": "2026-08-05T09:49:40.018Z",
+      "price": null,
+      "currency": "$",
+      "status": "error",
+      "error": "Unable to extract price with configured selectors"
+    }
+  ],
+  "prod_1785923379462": [
+    {
+      "timestamp": "2026-08-05T09:49:40.018Z",
       "price": null,
       "currency": "$",
       "status": "error",
