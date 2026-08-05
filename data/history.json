@@ -5,6 +5,13 @@
       "price": 100,
       "currency": "$",
       "status": "success"
+    },
+    {
+      "timestamp": "2026-08-05T09:28:58.386Z",
+      "price": 100,
+      "currency": "$",
+      "status": "error",
+      "error": "Unable to extract price with configured selectors"
     }
   ]
 }
