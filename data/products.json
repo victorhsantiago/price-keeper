@@ -1,14 +1,5 @@
 [
   {
-    "id": "prod_example_1",
-    "name": "Playwright Documentation",
-    "url": "https://playwright.dev/",
-    "selector": "h1",
-    "targetPrice": 100,
-    "active": true,
-    "addedAt": "2026-08-05T10:00:00Z"
-  },
-  {
     "id": "prod_1785922369455",
     "name": "ASUS ROG Astral GeForce RTX 5080",
     "url": "https://www.amazon.de/-/en/gp/product/B0DS643QRW",
