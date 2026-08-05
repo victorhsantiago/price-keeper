@@ -102,6 +102,13 @@
       "currency": "€",
       "status": "error",
       "error": "Unable to extract price with configured selectors"
+    },
+    {
+      "timestamp": "2026-08-05T12:00:35.253Z",
+      "price": 1585.99,
+      "currency": "€",
+      "status": "error",
+      "error": "Unable to extract price with configured selectors"
     }
   ],
   "prod_1785923379462": [
@@ -144,6 +151,13 @@
   "prod_1785927787648": [
     {
       "timestamp": "2026-08-05T11:03:08.221Z",
+      "price": null,
+      "currency": "€",
+      "status": "error",
+      "error": "Unable to extract price with configured selectors"
+    },
+    {
+      "timestamp": "2026-08-05T12:00:35.253Z",
       "price": null,
       "currency": "€",
       "status": "error",
