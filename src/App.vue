@@ -57,6 +57,7 @@
           :history="historyMap[prod.id] || []"
           :repo-owner="repoOwner"
           :repo-name="repoName"
+          @product-removed="loadData"
         />
       </section>
     </main>
@@ -67,12 +68,14 @@
       :repo-owner="repoOwner"
       :repo-name="repoName"
       @close="isAddModalOpen = false"
+      @product-added="loadData"
     />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { supabase, isSupabaseConfigured } from './lib/supabase'
 import ProductCard from './components/ProductCard.vue'
 import AddProductModal from './components/AddProductModal.vue'
 import MetricCard from './components/ui/MetricCard.vue'
@@ -112,30 +115,48 @@ const isAddModalOpen = ref(false)
 
 async function loadData() {
   isLoading.value = true
-  const rawBase = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/data/`
-  const localBase = import.meta.env.BASE_URL || './'
-  const cleanLocalBase = localBase.endsWith('/') ? localBase : localBase + '/'
 
-  try {
-    const productsRes = await fetch(`${rawBase}products.json?t=${Date.now()}`)
-      .catch(() => fetch(`${cleanLocalBase}data/products.json?t=${Date.now()}`))
-      .catch(() => fetch('./data/products.json'))
-    if (productsRes && productsRes.ok) {
-      products.value = await productsRes.json()
-    }
-  } catch (err) {
-    console.warn('Could not fetch products.json:', err)
-  }
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data: dbProducts, error: prodErr } = await supabase
+        .from('products')
+        .select('*')
+        .order('added_at', { ascending: false })
 
-  try {
-    const historyRes = await fetch(`${rawBase}history.json?t=${Date.now()}`)
-      .catch(() => fetch(`${cleanLocalBase}data/history.json?t=${Date.now()}`))
-      .catch(() => fetch('./data/history.json'))
-    if (historyRes && historyRes.ok) {
-      historyMap.value = await historyRes.json()
+      const { data: dbHistory, error: histErr } = await supabase
+        .from('price_history')
+        .select('*')
+        .order('timestamp', { ascending: true })
+
+      if (!prodErr && dbProducts) {
+        products.value = dbProducts.map(p => ({
+          id: p.id,
+          name: p.name,
+          url: p.url,
+          selector: p.selector,
+          targetPrice: p.target_price ? Number(p.target_price) : undefined,
+          active: p.active,
+          addedAt: p.added_at
+        }))
+      }
+
+      if (!histErr && dbHistory) {
+        const map: Record<string, HistoryRecord[]> = {}
+        for (const h of dbHistory) {
+          const list = map[h.product_id] || []
+          list.push({
+            timestamp: h.timestamp,
+            price: h.price !== null ? Number(h.price) : null,
+            currency: h.currency || '€',
+            status: h.status || 'success'
+          })
+          map[h.product_id] = list
+        }
+        historyMap.value = map
+      }
+    } catch (err) {
+      console.warn('Supabase fetch failed:', err)
     }
-  } catch (err) {
-    console.warn('Could not fetch history.json:', err)
   }
 
   isLoading.value = false

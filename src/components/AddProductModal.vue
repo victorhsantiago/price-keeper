@@ -39,36 +39,38 @@
           />
         </div>
       </div>
+
+      <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
     </form>
 
     <template #footer>
-      <BaseButton variant="secondary" @click="close">Cancel</BaseButton>
+      <BaseButton variant="secondary" :disabled="isSubmitting" @click="close">Cancel</BaseButton>
       <BaseButton
         variant="primary"
-        :href="issueUrl"
-        target="_blank"
-        rel="noopener noreferrer"
-        @click="close"
+        :disabled="isSubmitting"
+        @click="handleSubmit"
       >
-        Create via GitHub Issue 🚀
+        {{ isSubmitting ? 'Saving...' : 'Add Product 🚀' }}
       </BaseButton>
     </template>
   </ModalDialog>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import ModalDialog from './ui/ModalDialog.vue'
 import BaseInput from './ui/BaseInput.vue'
 import BaseButton from './ui/BaseButton.vue'
+import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
-const props = defineProps<{
+defineProps<{
   isOpen: boolean
-  repoOwner?: string
-  repoName?: string
 }>()
 
-const emit = defineEmits(['close', 'submitted'])
+const emit = defineEmits(['close', 'product-added'])
+
+const isSubmitting = ref(false)
+const errorMessage = ref('')
 
 const form = reactive({
   name: '',
@@ -77,34 +79,47 @@ const form = reactive({
   selector: ''
 })
 
-const defaultOwner = computed(() => props.repoOwner || 'victorsantiago')
-const defaultRepo = computed(() => props.repoName || 'price-keeper')
-
-const issueUrl = computed(() => {
-  const title = encodeURIComponent(`[Add Product] ${form.name || 'New Product'}`)
-  const body = encodeURIComponent(
-`### Product Name
-${form.name || 'N/A'}
-
-### Product URL
-${form.url || 'N/A'}
-
-### Custom CSS Selector (Optional)
-${form.selector || ''}
-
-### Target Price
-${form.targetPrice ?? '0'}
-`
-  )
-  return `https://github.com/${defaultOwner.value}/${defaultRepo.value}/issues/new?title=${title}&body=${body}&labels=product-action,add-product`
-})
-
 function close() {
+  errorMessage.value = ''
   emit('close')
 }
 
-function handleSubmit() {
-  window.open(issueUrl.value, '_blank')
+async function handleSubmit() {
+  if (!form.name || !form.url) {
+    errorMessage.value = 'Please fill out both product name and URL.'
+    return
+  }
+
+  isSubmitting.value = true
+  errorMessage.value = ''
+
+  if (isSupabaseConfigured && supabase) {
+    const id = `prod_${Date.now()}`
+    const { error } = await supabase.from('products').insert({
+      id,
+      name: form.name,
+      url: form.url,
+      selector: form.selector || '',
+      target_price: form.targetPrice ? Number(form.targetPrice) : 0,
+      active: true,
+      added_at: new Date().toISOString()
+    })
+
+    if (error) {
+      console.error('Failed to add product to Supabase:', error.message)
+      errorMessage.value = `Failed to save product: ${error.message}`
+      isSubmitting.value = false
+      return
+    }
+  }
+
+  form.name = ''
+  form.url = ''
+  form.targetPrice = null
+  form.selector = ''
+  isSubmitting.value = false
+
+  emit('product-added')
   close()
 }
 </script>
@@ -123,4 +138,10 @@ function handleSubmit() {
 
 .flex-1 { flex: 1; }
 .flex-2 { flex: 2; }
+
+.error-text {
+  color: var(--accent-danger, #ef4444);
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
 </style>

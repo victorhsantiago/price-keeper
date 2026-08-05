@@ -63,12 +63,11 @@
       <BaseButton
         variant="danger-outline"
         size="sm"
-        :href="removeIssueUrl"
-        target="_blank"
-        rel="noopener noreferrer"
-        title="Remove product via GitHub Issue"
+        :disabled="isDeleting"
+        title="Remove product"
+        @click="handleRemove"
       >
-        Remove 🗑️
+        {{ isDeleting ? 'Removing...' : 'Remove 🗑️' }}
       </BaseButton>
     </div>
   </div>
@@ -79,6 +78,7 @@ import { computed, ref } from 'vue'
 import PriceHistoryChart from './PriceHistoryChart.vue'
 import BaseBadge from './ui/BaseBadge.vue'
 import BaseButton from './ui/BaseButton.vue'
+import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
 interface Product {
   id: string
@@ -103,8 +103,11 @@ const props = defineProps<{
   repoName?: string
 }>()
 
+const emit = defineEmits(['product-removed'])
+
 const showChart = ref(false)
 const faviconFailed = ref(false)
+const isDeleting = ref(false)
 
 const domain = computed(() => {
   try {
@@ -169,21 +172,22 @@ const lastUpdatedText = computed(() => {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 })
 
-const defaultOwner = computed(() => props.repoOwner || 'victorsantiago')
-const defaultRepo = computed(() => props.repoName || 'price-keeper')
+async function handleRemove() {
+  if (!confirm(`Are you sure you want to stop tracking "${props.product.name}"?`)) return
 
-const removeIssueUrl = computed(() => {
-  const title = encodeURIComponent(`[Remove Product] ${props.product.name}`)
-  const body = encodeURIComponent(
-`### Product ID
-${props.product.id}
-
-### Product URL
-${props.product.url}
-`
-  )
-  return `https://github.com/${defaultOwner.value}/${defaultRepo.value}/issues/new?title=${title}&body=${body}&labels=product-action,remove-product`
-})
+  isDeleting.value = true
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase.from('products').delete().eq('id', props.product.id)
+    if (error) {
+      console.error('Failed to remove product from Supabase:', error.message)
+      alert(`Could not remove product: ${error.message}`)
+      isDeleting.value = false
+      return
+    }
+  }
+  isDeleting.value = false
+  emit('product-removed', props.product.id)
+}
 </script>
 
 <style scoped>

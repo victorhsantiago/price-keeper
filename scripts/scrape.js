@@ -2,14 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { supabase, isSupabaseConfigured } from './supabase-client.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '..');
-
-const productsPath = path.join(rootDir, 'data', 'products.json');
-const historyPath = path.join(rootDir, 'data', 'history.json');
-
 const isDryRun = process.argv.includes('--dry-run');
 
 /**
@@ -242,18 +238,40 @@ async function sendNotification(product, newPrice, currency, oldPrice) {
 async function runScraper() {
   console.log(`[Scraper] Starting price check... ${isDryRun ? '(DRY RUN)' : ''}`);
 
-  if (!fs.existsSync(productsPath)) {
-    console.error(`[Scraper Error] Products file not found at ${productsPath}`);
-    process.exit(1);
-  }
-
-  const products = JSON.parse(fs.readFileSync(productsPath, 'utf8'));
+  let products = [];
   let history = {};
-  if (fs.existsSync(historyPath)) {
+
+  if (isSupabaseConfigured && supabase) {
     try {
-      history = JSON.parse(fs.readFileSync(historyPath, 'utf8'));
-    } catch {
-      history = {};
+      console.log('[Scraper] Fetching products and history from Supabase...');
+      const { data: dbProducts, error: pErr } = await supabase.from('products').select('*').eq('active', true);
+      if (!pErr && dbProducts && dbProducts.length > 0) {
+        products = dbProducts.map(p => ({
+          id: p.id,
+          name: p.name,
+          url: p.url,
+          selector: p.selector,
+          targetPrice: p.target_price ? Number(p.target_price) : 0,
+          active: p.active,
+          addedAt: p.added_at
+        }));
+      }
+
+      const { data: dbHistory, error: hErr } = await supabase.from('price_history').select('*').order('timestamp', { ascending: true });
+      if (!hErr && dbHistory) {
+        for (const h of dbHistory) {
+          if (!history[h.product_id]) history[h.product_id] = [];
+          history[h.product_id].push({
+            timestamp: h.timestamp,
+            price: h.price !== null ? Number(h.price) : null,
+            currency: h.currency || '€',
+            status: h.status || 'success',
+            error: h.error || undefined
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[Scraper] Could not query Supabase:', err.message);
     }
   }
 
@@ -456,6 +474,16 @@ async function runScraper() {
       };
       history[product.id].push(record);
 
+      if (!isDryRun && isSupabaseConfigured && supabase) {
+        await supabase.from('price_history').insert({
+          product_id: product.id,
+          price: extractedData.price,
+          currency: extractedData.currency,
+          status: 'success',
+          timestamp
+        });
+      }
+
       if (lastRecord && lastRecord.status === 'success' && extractedData.price < lastRecord.price) {
         console.log(`  -> 🎉 Price Drop Detected! Was: ${lastRecord.price}, Now: ${extractedData.price}`);
         if (!isDryRun) {
@@ -463,24 +491,30 @@ async function runScraper() {
         }
       }
     } else {
-      history[product.id].push({
+      const errRecord = {
         timestamp,
         price: lastRecord ? lastRecord.price : null,
         currency: lastRecord ? lastRecord.currency : '€',
         status: 'error',
         error: errorMsg || 'Unable to extract price with configured selectors'
-      });
+      };
+      history[product.id].push(errRecord);
+
+      if (!isDryRun && isSupabaseConfigured && supabase) {
+        await supabase.from('price_history').insert({
+          product_id: product.id,
+          price: errRecord.price,
+          currency: errRecord.currency,
+          status: 'error',
+          error: errRecord.error,
+          timestamp
+        });
+      }
     }
   }
 
   await browser.close();
-
-  if (!isDryRun) {
-    fs.writeFileSync(historyPath, JSON.stringify(history, null, 2), 'utf8');
-    console.log(`\n[Scraper] Successfully updated ${historyPath}`);
-  } else {
-    console.log('\n[Scraper] Dry run complete. No files modified.');
-  }
+  console.log('\n[Scraper] Price check execution finished.');
 }
 
 runScraper().catch(err => {
